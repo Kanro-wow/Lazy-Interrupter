@@ -1,0 +1,6 @@
+## Interface: 60000
+## Title : LazyInterrupt
+## Notes: Announces when you finally dragged your finger to your interupt button and pressed it
+## Author: Kanro
+## Version: 0.1
+LazyInterrupt.lua
