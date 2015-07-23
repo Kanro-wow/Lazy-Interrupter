@@ -1,22 +1,51 @@
 local frame = CreateFrame("Frame")
-local cFrame = CreateFrame("Frame")
+local combatFrame = CreateFrame("Frame")
 
-local bloodlust = {[80353]=true,[90355]=true,[160452]=true,[32182]=true,[2825]=true,[178207]=true}
-local buffs = {[175215]=true,[173979]=true,[173978]=true,[185705]=true,[185708]=true,[29893]=true,[698]=true,[174889]=true,[174887]=true}
-local channel, prevMsg, prevTime, _playerGUID, _petGUID
+local create = {
+	[29893] = true, 			-- create soulwell
+	[698] = true, 				-- ritual of summoning
+}
+
+local aura = {
+	[90355] = true, 			-- ancient hysteria
+	[160452] = true, 			-- netherwinds
+	[80353] = true, 			-- time warp
+	[2825] = true, 				-- bloodlust
+	[32182] = true, 			-- heroism
+	[178207] = true, 			-- drums of fury
+	[871] = "PLAYER", 		-- shield wall
+	[12975] = "PLAYER",		-- last stand
+	[61316] = "PLAYER",		-- arcane brilliance
+}
+
+local spellcast = {
+	[76577] = "PLAYER",		-- smoke bomb
+	[20707] = "PLAYER",		-- soulstone
+	[175498] = true, 			-- ritual of summoning - aeda brightdawn
+	[175516] = true, 			-- ritual of summoning - defender illona
+}
+
+
+local strings = {
+	["SPELL_AURA_APPLIED"] = "%s used %s!",
+	["SPELL_AURA_APPLIED_PLAYER"] = "Used %s!",
+	["SPELL_CREATE"] = "%s placed down a %s!",
+	["SPELL_CREATE_PLAYER"] = "Placed down a %s!",
+	["SPELL_CAST_SUCCESS"] = "%s used %s!",
+	["SPELL_CAST_SUCCESS_PLAYER"] = "Used %s!",
+}
+local channel, prevMsg, prevTime, playerGUID, playerName, petGUID
 
 frame:SetScript('OnEvent', function(self, event, ...)
 	self[event](...)
 	end)
-cFrame:SetScript('OnEvent', function(self,_,_,event,...)
+combatFrame:SetScript('OnEvent', function(self,_,_,event,...)
 	if self[event] then
-		self[event](self, ...)
+		self[event](self,event,...)
 	end
 end)
 
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("PLAYER_REGEN_ENABLED")
-frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 
 local function setChannel()
@@ -40,43 +69,73 @@ local function announce(msg)
 	end
 end
 
-function registerEvents(register)
-	setChannel()
-	print("channel is",channel)
-	if register == false or channel == false then
-		print("UnregisterEvent1")
-		cFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-	elseif channel or register then
-		cFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-		print("RegisterEvent")
+local function createMsg(sourceName,spellId,event)
+	local link = GetSpellLink(spellId)
+	if sourceName == playerName then
+		local msg = format(strings[event.."_PLAYER"], link)
 	else
-		cFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-		print("UnregisterEvent2")
+		local msg = format(strings[event.."_PLAYER"], sourceName, link)
+	end
+
+	announce(msg)
+end
+
+function registerEvents()
+	setChannel()
+	if channel then
+		combatFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		print("registering")
+	else
+		combatFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		print("unregistering")
 	end
 end
 
-function cFrame:SPELL_SUMMON(_,playerGUID)
-	if playerGUID == _playerGUID then
-		_petGUID = UnitGUID("pet")
+-- hideCaster,sourceGUID,sourceName,sourceFlags,sourceRaidFlags,destGUID,destName,destFlags,destRaidFlags,spellId,spellName,spellSchool
+function combatFrame:SPELL_AURA_APPLIED(event,_,sourceGUID,sourceName,_,_,_,_,_,_,spellId)
+	print(spellId)
+	if aura[spellId] then
+		if aura[spellId] == true or (aura[spellId] == "PLAYER" and sourceGUID == playerGUID) then
+			createMsg(sourceName,spellId,event)
+		else
+			print("failed because not true or not player")
+		end
+	else
+		print("not an aura to be announced")
+	end
+end
+
+function combatFrame:SPELL_CAST_SUCCESS(event,_,sourceGUID,sourceName,_,_,_,_,_,_,spellId)
+	if spellcast[spellId] then
+		if spellcast[spellId] == true or (spellcast[spellId] == "PLAYER" and sourceGUID == playerGUID) then
+			createMsg(sourceName,spellId,event)
+		end
+	end
+end
+
+function combatFrame:SPELL_CREATE(event,_,sourceGUID,sourceName,_,_,_,_,_,_,spellId)
+	if create[spellId] then
+		if create[spellId] == true or (create[spellId] == "PLAYER" and sourceGUID == playerGUID) then
+			createMsg(sourceName,spellId,event)
+		end
+	end
+end
+
+function combatFrame:SPELL_SUMMON(_,sourceGUID)
+	if sourceGUID == playerGUID then
+		petGUID = UnitGUID("pet")
 	end
 end
 
 function frame:PLAYER_ENTERING_WORLD()
-	_playerGUID = UnitGUID("player")
-	_petGUID = UnitGUID("pet")
+	playerGUID = UnitGUID("player")
+	playerName = UnitName("player")
+	petGUID = UnitGUID("pet")
 	registerEvents()
 end
 
 function frame:GROUP_ROSTER_UPDATE()
 	registerEvents()
-end
-
-function frame:PLAYER_REGEN_ENABLED()
-	registerEvents()
-end
-
-function frame:PLAYER_REGEN_DISABLED()
-	registerEvents(false)
 end
 
 
