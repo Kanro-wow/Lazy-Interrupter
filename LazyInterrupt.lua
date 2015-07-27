@@ -14,14 +14,15 @@ local aura = {
 	[32182] = true, 			-- heroism
 	[178207] = true, 			-- drums of fury
 	[871] = "PLAYER", 		-- shield wall
+	[48792] = "PLAYER", 	-- icebound fortitude
 	[12975] = "PLAYER",		-- last stand
-	[61316] = "PLAYER",		-- arcane brilliance
 }
 
 local spellcast = {
 	[76577] = "PLAYER",		-- smoke bomb
 	[20707] = "PLAYER",		-- soulstone
-	[175498] = true, 			-- ritual of summoning - aeda brightdawn
+	[61999] = "PLAYER",		-- raise ally
+	[175498] = true, 			-- ritual of summoning - aeda brightdawn`
 	[175516] = true, 			-- ritual of summoning - defender illona
 }
 
@@ -34,7 +35,8 @@ local strings = {
 	["SPELL_CAST_SUCCESS"] = "%s used %s!",
 	["SPELL_CAST_SUCCESS_PLAYER"] = "Used %s!",
 }
-local channel, prevMsg, prevTime, playerGUID, playerName, petGUID
+local channel, prevMsg, playerGUID, playerName, petGUID
+local prevTime = 0
 
 frame:SetScript('OnEvent', function(self, event, ...)
 	self[event](...)
@@ -62,6 +64,8 @@ local function setChannel()
 end
 
 local function announce(msg)
+	print(msg)
+
 	if (prevMsg ~= msg or (GetTime() - prevTime > 10 )) and channel then
 		prevMsg = msg
 		prevTime = GetTime()
@@ -71,37 +75,29 @@ end
 
 local function createMsg(sourceName,spellId,event)
 	local link = GetSpellLink(spellId)
-	if sourceName == playerName then
-		local msg = format(strings[event.."_PLAYER"], link)
+	if sourceName == playerName and strings[event.."_PLAYER"] then
+		announce(format(strings[event.."_PLAYER"],sourceName,link))
 	else
-		local msg = format(strings[event.."_PLAYER"], sourceName, link)
+		announce(format(strings[event],link))
 	end
-
-	announce(msg)
 end
 
 function registerEvents()
 	setChannel()
 	if channel then
 		combatFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-		print("registering")
 	else
 		combatFrame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-		print("unregistering")
 	end
 end
 
 -- hideCaster,sourceGUID,sourceName,sourceFlags,sourceRaidFlags,destGUID,destName,destFlags,destRaidFlags,spellId,spellName,spellSchool
-function combatFrame:SPELL_AURA_APPLIED(event,_,sourceGUID,sourceName,_,_,_,_,_,_,spellId)
-	print(spellId)
-	if aura[spellId] then
-		if aura[spellId] == true or (aura[spellId] == "PLAYER" and sourceGUID == playerGUID) then
-			createMsg(sourceName,spellId,event)
-		else
-			print("failed because not true or not player")
+function combatFrame:SPELL_AURA_APPLIED(event,_,sourceGUID,sourceName,_,_,destGUID,_,_,_,spellId)
+	if aura[spellId] and destGUID == playerGUID then
+		if aura[spellId] == "PLAYER" and sourceGUID ~= playerGUID then
+			return
 		end
-	else
-		print("not an aura to be announced")
+		createMsg(sourceName,spellId,event)
 	end
 end
 
